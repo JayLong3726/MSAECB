@@ -1,0 +1,62 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ECB Training Simulator</title>
+<link rel="stylesheet" href="style.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script></head>
+<body>
+<header class="topbar"><div class="brand">ECB <span>TRAINING SIMULATOR</span></div><div class="status"><span class="dot"></span> LIVE BOARD</div></header>
+<main class="view"><div class="grid">
+<section class="card"><div class="cardhead"><div><h2>MSA Entry Control Board</h2><div class="small">Training simulation · Session <span id="sessionLabel"></span></div></div><div class="small">TOW DISPLAY</div></div>
+<div class="board"><div class="board-top"><div><div class="board-name">ECB ALPHA</div><div class="clock" id="clock">--:--:--</div></div><button class="evacuate-all" id="evacAll">EVACUATE ALL</button></div><div id="slots"></div></div></section>
+<aside class="card"><div class="cardhead"><h3>Instructor Link</h3><span class="small" id="connection">CONNECTING</span></div>
+<div class="controls"><div style="display:flex;gap:14px;align-items:center"><div class="qrbox" id="qr"></div><div class="help"><strong>Scan with instructor phone</strong><br>Scan this QR code to open the private controller for this exact exercise session.</div></div>
+<label>Display<select id="displayMode"><option value="tow">Time of Whistle</option><option value="ttw">Time to Whistle</option><option value="elapsed">Elapsed Time</option></select></label>
+<button class="btn dark" id="reset">Reset Scenario</button>
+<div class="help"><strong>Operator:</strong> insert the tallies manually into the six channels. The instructor controls the simulation remotely from the phone.</div></div>
+<div class="cardhead"><h3>Event Log</h3></div><div class="eventlog" id="log"></div></aside></div></main>
+<div class="modal" id="modal"><div class="dialog"><h2>Insert Tally <span id="modalSlot"></span></h2>
+<label>Wearer name<input id="name" placeholder="e.g. FF Smith"></label><div class="row"><label>Team<select id="team"><option>ALPHA</option><option>BRAVO</option><option>CHARLIE</option></select></label><label>Initial pressure<input id="pressure" type="number" value="300" min="0"></label></div>
+<label>Time in<input id="timeIn" type="datetime-local"></label><div class="dialog-actions"><button style="background:#303b43;color:#fff" id="cancel">CANCEL</button><button style="background:#16884a;color:#fff" id="insert">INSERT TALLY</button></div></div></div>
+<footer>ECB Training Simulator · browser-based training prototype</footer>
+<script type="module">
+import {connect,writeSession,watchSession,makeSessionId} from "./firebase.js";
+const qs=new URLSearchParams(location.search);
+const session=qs.get("session")||makeSessionId();
+let pending=null;
+const blank=()=>({id:0,name:"",team:"",initialPressure:0,timeIn:null,inserted:false,alarm:null,alarmAck:false,evac:null,telemetry:false});
+let state={boardName:"ECB ALPHA",displayMode:"tow",consumptionLpm:50,cylinderVolumeL:9,slots:Array.from({length:6},(_,i)=>({...blank(),id:i+1})),log:[]};
+const $=id=>document.getElementById(id);
+function addLog(message){state.log=[{time:new Date().toISOString(),message},...(state.log||[])].slice(0,150)}
+function pressure(s){if(!s.inserted)return 0;const sec=Math.max(0,(Date.now()-new Date(s.timeIn).getTime())/1000);return Math.max(0,s.initialPressure-(state.consumptionLpm*sec/60)/state.cylinderVolumeL)}
+function ttw(s){return Math.max(0,(pressure(s)-60)*state.cylinderVolumeL/state.consumptionLpm)}
+function fmt(sec){sec=Math.max(0,Math.floor(sec));return String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0")}
+function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+function render(){
+ $("clock").textContent=new Date().toLocaleTimeString();
+ $("sessionLabel").textContent=session;
+ $("connection").textContent="LIVE";
+ const root=$("slots");root.innerHTML="";
+ state.slots.forEach(s=>{
+  if(!s.inserted){root.insertAdjacentHTML("beforeend",`<div class="slot"><div class="slotnum">${s.id}</div><div class="available">Slot Available</div><div class="slot-action"><button class="evac-btn" onclick="openInsert(${s.id})">INSERT TALLY</button></div></div>`);return}
+  const p=Math.round(pressure(s)),pct=Math.max(0,Math.min(100,p/3));
+  let display=state.displayMode==="ttw"?`TTW: ${Math.floor(ttw(s))} min`:state.displayMode==="elapsed"?`Elapsed: ${fmt((Date.now()-new Date(s.timeIn).getTime())/1000)}`:`TOW: ${new Date(Date.now()+ttw(s)*60000).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`;
+  let alarm=s.alarm?`<div class="alert ${s.alarmAck?"yellow":""}">${s.alarm} · ${s.alarmAck?"ACKNOWLEDGED":"CONFIRM ON BOARD"}</div>`:"";
+  let evac=s.evac?`<div class="alert ${s.evac==="confirmed"?"green":s.evac==="received"?"yellow":""}">${s.evac==="sent"?"EVACUATION SENT":s.evac==="received"?"EVACUATION RECEIVED":"WITHDRAWAL CONFIRMED"}</div>`:"";
+  root.insertAdjacentHTML("beforeend",`<div class="slot"><div class="slotnum">${s.id}</div><div class="slot-main"><div class="slot-top"><span>${esc(s.name)}</span><span class="pressure">${p} bar</span></div><div class="team">${esc(s.team)}</div><div class="bar"><i style="width:${pct}%"></i></div><div class="meta"><span>${display}</span><span class="telemetry ${s.telemetry?"on":"off"}">${s.telemetry?"● TELEMETRY":"● LINK LOST"}</span><span>IN: ${new Date(s.timeIn).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</span></div>${alarm}${evac}</div><div class="slot-action"><button class="evac-btn" onclick="evacuate(${s.id})">EVACUATE</button></div></div>`);
+ });
+ $("log").innerHTML=(state.log||[]).map(e=>`<div class="event"><time>${new Date(e.time).toLocaleTimeString()}</time>${esc(e.message)}</div>`).join("");
+}
+function makeQR(){
+ const target=location.origin+location.pathname.replace("board.html","controller.html")+"?session="+session;
+ $("qr").innerHTML="";
+ if(window.QRCode) new QRCode($("qr"),{text:target,width:114,height:114,colorDark:"#111",colorLight:"#fff",correctLevel:QRCode.CorrectLevel.M});
+}
+window.openInsert=id=>{pending=id;$("modalSlot").textContent=id;$("name").value="";$("team").value="ALPHA";$("pressure").value=300;$("timeIn").value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);$("modal").classList.add("show")};
+$("cancel").onclick=()=>$("modal").classList.remove("show");
+$("insert").onclick=async()=>{const s=state.slots[pending-1];s.name=$("name").value.trim()||"Wearer";s.team=$("team").value;s.initialPressure=Number($("pressure").value)||0;s.timeIn=new Date($("timeIn").value).toISOString();s.inserted=true;s.telemetry=true;s.alarm=null;s.alarmAck=false;s.evac=null;addLog(`Tally ${pending} inserted: ${s.name}, ${s.initialPressure} bar, ${s.team}.`);await writeSession(session,state);$("modal").classList.remove("show")};
+window.evacuate=async id=>{const s=state.slots[id-1];if(!s.inserted)return;s.evac="sent";addLog(`Tally ${id}: evacuation signal SENT.`);await writeSession(session,state);setTimeout(async()=>{if(s.evac==="sent"){s.evac="received";addLog(`Tally ${id}: evacuation signal RECEIVED.`);await writeSession(session,state)}},1200);setTimeout(async()=>{if(s.evac==="received"){s.evac="confirmed";addLog(`Tally ${id}: withdrawal CONFIRMED.`);await writeSession(session,state)}},2600)};
+$("evacAll").onclick=async()=>{addLog("BOARD: EVACUATE ALL initiated.");await writeSession(session,state);state.slots.filter(s=>s.inserted).forEach((s,i)=>setTimeout(()=>evacuate(s.id),i*300))};
+$("reset").onclick=async()=>{state={boardName:"ECB ALPHA",displayMode:"tow",consumptionLpm:50,cylinderVolumeL:9,slots:Array.from({length:6},(_,i)=>({...blank(),id:i+1})),log:[]};addLog("Scenario reset. ECB ready.");await writeSession(session,state)};
+$("displayMode").onchange=async e=>{state.displayMode=e.target.value;await writeSession(session,state)};
+async function start(){
+ try{await connect();$("connection").textContent="CONNECTED";const exists=!!qs.get("session");if(!exists)await writeSession(session,state);watchSession(session,s=>{if(s){state=s;render()}});makeQR();render()}catch(e){console.error(e);$("connection").textContent="ERROR";$("log").innerHTML='<div class="event">Firebase connection failed. Check Authentication and Database Rules.</div>';render()}
+}
+start();setInterval(render,1000);
+</script></body></html>
