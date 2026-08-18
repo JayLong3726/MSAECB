@@ -1,52 +1,32 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ECB Instructor Controller</title><link rel="stylesheet" href="style.css"></head>
-<body><header class="topbar"><div class="brand">ECB <span>INSTRUCTOR CONTROLLER</span></div><div class="status"><span class="dot"></span> LIVE CONTROL</div></header>
-<main class="view"><div class="phone"><section class="card"><div class="cardhead"><div><h2>Instructor Controller</h2><div class="small" id="sessionInfo">Session ECB-ALPHA</div></div><div class="small" id="connection">CONNECTING</div></div>
-<div class="control-section"><label>SIMULATED AIR CONSUMPTION<input id="rate" type="number" min="10" max="150" step="1"><span class="small">L/min · simulation parameter</span></label><div class="row"><button class="btn dark" id="minus">−5 L/min</button><button class="btn dark" id="plus">+5 L/min</button></div></div>
-<div class="control-section">
-  <div style="font-size:13px;font-weight:900;margin-bottom:6px">INDIVIDUAL WEARER CONTROL</div>
-  <div class="small" style="margin-bottom:10px">Every tally inserted on the ECB appears below as its own live control panel.</div>
-  <div id="controls"></div>
-</div><div class="control-section"><div class="row"><button class="btn red" id="evacAll">EVACUATE ALL</button><button class="btn dark" id="reset">RESET</button></div></div>
-<div class="control-section"><div class="help"><strong>Instructor controls are separate from the ECB operator.</strong><br>Use this phone to inject events into the live board. This is a training simulation, not an operational replacement for the real ECB.</div></div>
-<div class="cardhead"><h3>Event Log</h3></div><div class="eventlog" id="log"></div>
-</section></div></main><footer>ECB Training Simulator · instructor interface</footer>
-<script type="module">
-import {connect,writeSession,watchSession} from "./firebase.js";
-const session=new URLSearchParams(location.search).get("session")||"ECB-ALPHA";let state=null;
-const $=id=>document.getElementById(id);
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ECB Instructor Controller</title>
+<link rel="stylesheet" href="style.css"><script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-database-compat.js"></script><script src="firebase.js"></script></head>
+<body><header class="topbar"><div class="brand">ECB <span>INSTRUCTOR CONTROLLER</span></div><div class="status"><span class="dot"></span> <span id="connection">STARTING</span></div></header>
+<main class="view"><div class="phone"><section class="card"><div class="cardhead"><div><h2>Instructor Controller</h2><div class="small">Shared session: <b>ECB-ALPHA</b></div></div></div>
+<div class="control-section"><label>SIMULATED AIR CONSUMPTION<input id="rate" type="number" min="10" max="150" value="50"><span class="small">L/min</span></label><div class="row"><button class="btn dark" id="minus">−5</button><button class="btn dark" id="plus">+5</button></div></div>
+<div class="control-section"><div style="font-size:13px;font-weight:900;margin-bottom:6px">INDIVIDUAL WEARER CONTROL</div><div class="small" style="margin-bottom:10px">Each inserted tally appears here automatically.</div><div id="controls"></div></div>
+<div class="control-section"><div class="row"><button class="btn red" id="evacAll">EVACUATE ALL</button><button class="btn dark" id="reset">RESET</button></div></div>
+<div class="cardhead"><h3>Event Log</h3></div><div class="eventlog" id="log"></div></section></div></main>
+<script>
+const SESSION="ECB-ALPHA";let state=null;const $=id=>document.getElementById(id);
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
-function pressure(s){if(!s.inserted)return 0;const sec=Math.max(0,(Date.now()-new Date(s.timeIn).getTime())/1000);return Math.max(0,s.initialPressure-(state.consumptionLpm*sec/60)/state.cylinderVolumeL)}
-function addLog(message){state.log=[{time:new Date().toISOString(),message},...(state.log||[])].slice(0,150)}
-async function save(){await writeSession(session,state)}
-function render(){
- if(!state)return;
- $("sessionInfo").textContent=`Session ${session} · ${state.boardName}`;
- $("rate").value=state.consumptionLpm;
- const c=$("controls");c.innerHTML="";
- state.slots.filter(s=>s.inserted).forEach(s=>{
- c.insertAdjacentHTML("beforeend",`<div class="wearer-control"><strong>${s.id}. ${esc(s.name)}</strong><span class="small">${esc(s.team)} · ${Math.round(pressure(s))} bar</span>
- <div class="small" style="margin-top:6px">Status: ${s.alarm ? esc(s.alarm) : "NORMAL"}${s.evac ? " · EVACUATION "+esc(s.evac.toUpperCase()) : ""}</div>
- <div class="control-buttons">
- <button onclick="alarm(${s.id},'DSU')">DSU</button>
- <button onclick="alarm(${s.id},'ADSU')">ADSU</button>
- <button class="warning" onclick="alarm(${s.id},'MOTION ALARM')">MOTION</button>
- <button class="danger" onclick="evacuate(${s.id})">EVACUATE</button>
- <button onclick="telemetry(${s.id},${!s.telemetry})">${s.telemetry?"DROP TELEMETRY":"RESTORE LINK"}</button>
- <button class="green" onclick="ack(${s.id})">ACKNOWLEDGE</button>
- <button onclick="removeTally(${s.id})">REMOVE TALLY</button>
- </div></div>`)});
- $("log").innerHTML=(state.log||[]).map(e=>`<div class="event"><time>${new Date(e.time).toLocaleTimeString()}</time>${esc(e.message)}</div>`).join("");
-}
-window.alarm=async(id,type)=>{const s=state.slots[id-1];s.alarm=type;s.alarmAck=false;addLog(`Tally ${id}: ${type} activated.`);await save()};
-window.ack=async id=>{const s=state.slots[id-1];if(!s.alarm)return;s.alarmAck=true;addLog(`Tally ${id}: ${s.alarm} acknowledged by ECO.`);await save()};
-window.telemetry=async(id,en)=>{state.slots[id-1].telemetry=en;addLog(`Tally ${id}: telemetry ${en?"restored":"link lost"}.`);await save()};
-window.removeTally=async id=>{const s=state.slots[id-1];addLog(`Tally ${id} removed from board.`);Object.assign(s,{name:"",team:"",initialPressure:0,timeIn:null,inserted:false,alarm:null,alarmAck:false,evac:null,telemetry:false});await save()};
-window.evacuate=async id=>{const s=state.slots[id-1];if(!s.inserted)return;s.evac="sent";addLog(`Tally ${id}: evacuation signal SENT.`);await save();setTimeout(async()=>{if(s.evac==="sent"){s.evac="received";addLog(`Tally ${id}: evacuation signal RECEIVED.`);await save()}},1200);setTimeout(async()=>{if(s.evac==="received"){s.evac="confirmed";addLog(`Tally ${id}: withdrawal CONFIRMED.`);await save()}},2600)};
-$("evacAll").onclick=async()=>{addLog("BOARD: EVACUATE ALL initiated.");await save();state.slots.filter(s=>s.inserted).forEach((s,i)=>setTimeout(()=>evacuate(s.id),i*300))};
-$("minus").onclick=async()=>{state.consumptionLpm=Math.max(10,state.consumptionLpm-5);addLog(`Instructor set simulated air consumption to ${state.consumptionLpm} L/min.`);await save()};
-$("plus").onclick=async()=>{state.consumptionLpm=Math.min(150,state.consumptionLpm+5);addLog(`Instructor set simulated air consumption to ${state.consumptionLpm} L/min.`);await save()};
-$("rate").onchange=async()=>{state.consumptionLpm=Math.max(10,Math.min(150,Number($("rate").value)||50));addLog(`Instructor set simulated air consumption to ${state.consumptionLpm} L/min.`);await save()};
-$("reset").onclick=async()=>{if(!confirm("Reset the ECB to a blank board?"))return;state.slots.forEach(s=>Object.assign(s,{name:"",team:"",initialPressure:0,timeIn:null,inserted:false,alarm:null,alarmAck:false,evac:null,telemetry:false}));state.log=[];addLog("Scenario reset. ECB ready.");await save()};
-async function start(){if(!session){$("connection").textContent="NO SESSION";return}try{await connect();$("connection").textContent="CONNECTED";watchSession(session,s=>{if(s){state=s;$("connection").textContent="LIVE · "+state.slots.filter(x=>x.inserted).length+" WEARER(S)";render()}},err=>{console.error(err);$("connection").textContent="FIREBASE ERROR";$("controls").innerHTML='<div class="help" style="color:#ff6b6b"><strong>Cannot read the ECB session.</strong><br>Check Firebase Authentication and Realtime Database rules.</div>'})}catch(e){console.error(e);$("connection").textContent="ERROR";$("controls").innerHTML='<div class="help" style="color:#ff6b6b"><strong>Firebase connection failed.</strong></div>'}}
-start();setInterval(render,1000);
+function pressure(s){if(!s.inserted)return 0;return Math.max(0,s.initialPressure-(state.consumptionLpm*((Date.now()-new Date(s.timeIn).getTime())/60000))/state.cylinderVolumeL)}
+function addLog(m){state.log=[{time:new Date().toISOString(),message:m},...(state.log||[])].slice(0,150)}
+async function write(){await ecbRef(SESSION).set(state)}
+function render(){if(!state)return;$("rate").value=state.consumptionLpm;let c=$("controls");c.innerHTML="";
+ const active=state.slots.filter(s=>s.inserted);
+ if(!active.length){c.innerHTML='<div class="help">NO WEARERS INSERTED<br><br>Insert a tally on the ECB board and it will appear here automatically.</div>'}
+ active.forEach(s=>{c.insertAdjacentHTML("beforeend",`<div class="wearer-control"><strong>TALLY ${s.id} — ${esc(s.name)}</strong><span class="small">${esc(s.team)} · ${Math.round(pressure(s))} bar</span><div class="small" style="margin-top:5px">Status: ${s.alarm?esc(s.alarm):"NORMAL"}${s.evac?" · EVAC "+s.evac.toUpperCase():""}</div><div class="control-buttons"><button onclick="alarm(${s.id},'DSU')">DSU</button><button onclick="alarm(${s.id},'ADSU')">ADSU</button><button class="warning" onclick="alarm(${s.id},'MOTION ALARM')">MOTION</button><button class="danger" onclick="evacuate(${s.id})">EVACUATE</button><button onclick="telemetry(${s.id},${!s.telemetry})">${s.telemetry?"DROP TELEMETRY":"RESTORE LINK"}</button><button class="green" onclick="ack(${s.id})">ACKNOWLEDGE</button><button onclick="removeTally(${s.id})">REMOVE TALLY</button></div></div>`)});
+ $("log").innerHTML=(state.log||[]).map(e=>`<div class="event"><time>${new Date(e.time).toLocaleTimeString()}</time>${esc(e.message)}</div>`).join("")}
+window.alarm=async(id,t)=>{let s=state.slots[id-1];s.alarm=t;s.alarmAck=false;addLog(`Tally ${id}: ${t} activated.`);await write()};
+window.ack=async id=>{let s=state.slots[id-1];if(s.alarm){s.alarmAck=true;addLog(`Tally ${id}: ${s.alarm} acknowledged.`);await write()}};
+window.telemetry=async(id,en)=>{state.slots[id-1].telemetry=en;addLog(`Tally ${id}: telemetry ${en?"restored":"lost"}.`);await write()};
+window.removeTally=async id=>{let s=state.slots[id-1];Object.assign(s,{name:"",team:"",initialPressure:0,timeIn:null,inserted:false,alarm:null,alarmAck:false,evac:null,telemetry:false});addLog(`Tally ${id} removed.`);await write()};
+window.evacuate=async id=>{let s=state.slots[id-1];s.evac="sent";addLog(`Tally ${id}: evacuation SENT.`);await write();setTimeout(async()=>{s.evac="received";addLog(`Tally ${id}: evacuation RECEIVED.`);await write()},1000);setTimeout(async()=>{s.evac="confirmed";addLog(`Tally ${id}: withdrawal CONFIRMED.`);await write()},2200)};
+$("evacAll").onclick=async()=>{addLog("EVACUATE ALL initiated.");await write();state.slots.filter(s=>s.inserted).forEach((s,i)=>setTimeout(()=>evacuate(s.id),i*250))};
+$("minus").onclick=async()=>{state.consumptionLpm=Math.max(10,state.consumptionLpm-5);addLog(`Air consumption ${state.consumptionLpm} L/min.`);await write()};
+$("plus").onclick=async()=>{state.consumptionLpm=Math.min(150,state.consumptionLpm+5);addLog(`Air consumption ${state.consumptionLpm} L/min.`);await write()};
+$("rate").onchange=async()=>{state.consumptionLpm=Math.max(10,Math.min(150,Number($("rate").value)||50));addLog(`Air consumption ${state.consumptionLpm} L/min.`);await write()};
+$("reset").onclick=async()=>{if(!confirm("Reset?"))return;state.slots.forEach(s=>Object.assign(s,{name:"",team:"",initialPressure:0,timeIn:null,inserted:false,alarm:null,alarmAck:false,evac:null,telemetry:false}));state.log=[];addLog("Scenario reset.");await write()};
+async function start(){try{await ecbConnect();$("connection").textContent="AUTHENTICATED";const r=ecbRef(SESSION);r.on("value",s=>{if(s.exists()){state=s.val();$("connection").textContent="LIVE · "+state.slots.filter(x=>x.inserted).length+" WEARER(S)";render()}},err=>{$("connection").textContent="DATABASE ERROR";$("controls").innerHTML='<div class="help" style="color:#ff6b6b">Database read failed: '+esc(err.message)+'</div>'})}catch(e){$("connection").textContent="AUTH ERROR";$("controls").innerHTML='<div class="help" style="color:#ff6b6b"><b>'+esc(e.code)+'</b><br>'+esc(e.message)+'</div>'}}
+start();setInterval(()=>{if(state)render()},1000);
 </script></body></html>

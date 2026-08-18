@@ -1,27 +1,15 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
-import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js";
-
-export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getDatabase(app);
-
-export async function connect() {
-  await signInAnonymously(auth);
-}
-export function sessionRef(id) {
-  return ref(db, "sessions/" + id);
-}
-export async function writeSession(id, state) {
-  await set(sessionRef(id), state);
-}
-export function watchSession(id, callback) {
-  return onValue(sessionRef(id), snap => callback(snap.val()));
-}
-export function makeSessionId() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = new Uint8Array(8);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, b => chars[b % chars.length]).join("");
-}
+const firebaseConfig = {
+  apiKey: "AIzaSyAHxMOXo0lK1j3U0GPGh-pZvXcZQUOdyUE",
+  authDomain: "ecb-sim.firebaseapp.com",
+  databaseURL: "https://ecb-sim-default-rtdb.firebaseio.com",
+  projectId: "ecb-sim",
+  storageBucket: "ecb-sim.firebasestorage.app",
+  messagingSenderId: "223054973598",
+  appId: "1:223054973598:web:131dcf8cc2cc4878a1c98f",
+  measurementId: "G-KEXH9FNSS5"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+async function ecbConnect(){ await auth.signInAnonymously(); return auth.currentUser; }
+function ecbRef(session){ return db.ref("sessions/"+session); }
