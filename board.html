@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ECB Training Simulator</title>
-<link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/davidshimjs-qrcodejs@0.0.2/qrcode.min.js"></script></head>
+<link rel="stylesheet" href="style.css"></head>
 <body>
 <header class="topbar"><div class="brand">ECB <span>TRAINING SIMULATOR</span></div><div class="status"><span class="dot"></span> LIVE BOARD</div></header>
 <main class="view"><div class="grid">
@@ -45,16 +45,16 @@ function render(){
 }
 function makeQR(){
  const target=location.origin+location.pathname.replace("board.html","controller.html")+"?session="+session;
+ const img=document.createElement("img");
+ img.alt="Instructor controller QR code";
+ img.width=114; img.height=114;
+ img.style.display="block";
+ img.src="https://quickchart.io/qr?size=114&margin=2&ecLevel=H&text="+encodeURIComponent(target);
+ img.onerror=()=>{$("qr").innerHTML='<div style="font-size:10px;color:#222;text-align:center;padding:8px">QR unavailable</div>'};
  $("qr").innerHTML="";
- if(window.QRCode){
-   try{
-     new QRCode($("qr"),{text:target,width:114,height:114,colorDark:"#111",colorLight:"#fff",correctLevel:QRCode.CorrectLevel.H});
-     return;
-   }catch(e){ console.error("QR generation failed",e); }
- }
- $("qr").innerHTML='<div style="font-size:10px;color:#222;text-align:center;padding:8px">QR unavailable<br><br><strong>Use controller link below</strong></div>';
-}
-window.openInsert=id=>{pending=id;$("modalSlot").textContent=id;$("name").value="";$("team").value="ALPHA";$("pressure").value=300;$("timeIn").value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);$("modal").classList.add("show")};
+ $("qr").appendChild(img);
+ $("controllerUrl").textContent=target;
+}window.openInsert=id=>{pending=id;$("modalSlot").textContent=id;$("name").value="";$("team").value="ALPHA";$("pressure").value=300;$("timeIn").value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);$("modal").classList.add("show")};
 $("cancel").onclick=()=>$("modal").classList.remove("show");
 $("insert").onclick=async()=>{const s=state.slots[pending-1];s.name=$("name").value.trim()||"Wearer";s.team=$("team").value;s.initialPressure=Number($("pressure").value)||0;s.timeIn=new Date($("timeIn").value).toISOString();s.inserted=true;s.telemetry=true;s.alarm=null;s.alarmAck=false;s.evac=null;addLog(`Tally ${pending} inserted: ${s.name}, ${s.initialPressure} bar, ${s.team}.`);await writeSession(session,state);$("modal").classList.remove("show")};
 window.evacuate=async id=>{const s=state.slots[id-1];if(!s.inserted)return;s.evac="sent";addLog(`Tally ${id}: evacuation signal SENT.`);await writeSession(session,state);setTimeout(async()=>{if(s.evac==="sent"){s.evac="received";addLog(`Tally ${id}: evacuation signal RECEIVED.`);await writeSession(session,state)}},1200);setTimeout(async()=>{if(s.evac==="received"){s.evac="confirmed";addLog(`Tally ${id}: withdrawal CONFIRMED.`);await writeSession(session,state)}},2600)};
