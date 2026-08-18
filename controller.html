@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ECB Instructor Controller</title><link rel="stylesheet" href="style.css"></head>
 <body><header class="topbar"><div class="brand">ECB <span>INSTRUCTOR CONTROLLER</span></div><div class="status"><span class="dot"></span> LIVE CONTROL</div></header>
-<main class="view"><div class="phone"><section class="card"><div class="cardhead"><div><h2>Instructor Controller</h2><div class="small" id="sessionInfo"></div></div><div class="small" id="connection">CONNECTING</div></div>
+<main class="view"><div class="phone"><section class="card"><div class="cardhead"><div><h2>Instructor Controller</h2><div class="small" id="sessionInfo">Session ECB-ALPHA</div></div><div class="small" id="connection">CONNECTING</div></div>
 <div class="control-section"><label>SIMULATED AIR CONSUMPTION<input id="rate" type="number" min="10" max="150" step="1"><span class="small">L/min · simulation parameter</span></label><div class="row"><button class="btn dark" id="minus">−5 L/min</button><button class="btn dark" id="plus">+5 L/min</button></div></div>
 <div class="control-section">
   <div style="font-size:13px;font-weight:900;margin-bottom:6px">INDIVIDUAL WEARER CONTROL</div>
@@ -47,6 +47,6 @@ $("minus").onclick=async()=>{state.consumptionLpm=Math.max(10,state.consumptionL
 $("plus").onclick=async()=>{state.consumptionLpm=Math.min(150,state.consumptionLpm+5);addLog(`Instructor set simulated air consumption to ${state.consumptionLpm} L/min.`);await save()};
 $("rate").onchange=async()=>{state.consumptionLpm=Math.max(10,Math.min(150,Number($("rate").value)||50));addLog(`Instructor set simulated air consumption to ${state.consumptionLpm} L/min.`);await save()};
 $("reset").onclick=async()=>{if(!confirm("Reset the ECB to a blank board?"))return;state.slots.forEach(s=>Object.assign(s,{name:"",team:"",initialPressure:0,timeIn:null,inserted:false,alarm:null,alarmAck:false,evac:null,telemetry:false}));state.log=[];addLog("Scenario reset. ECB ready.");await save()};
-async function start(){if(!session){$("connection").textContent="NO SESSION";return}try{await connect();$("connection").textContent="CONNECTED";watchSession(session,s=>{if(s){state=s;render()}})}catch(e){console.error(e);$("connection").textContent="ERROR"}}
+async function start(){if(!session){$("connection").textContent="NO SESSION";return}try{await connect();$("connection").textContent="CONNECTED";watchSession(session,s=>{if(s){state=s;$("connection").textContent="LIVE · "+state.slots.filter(x=>x.inserted).length+" WEARER(S)";render()}},err=>{console.error(err);$("connection").textContent="FIREBASE ERROR";$("controls").innerHTML='<div class="help" style="color:#ff6b6b"><strong>Cannot read the ECB session.</strong><br>Check Firebase Authentication and Realtime Database rules.</div>'})}catch(e){console.error(e);$("connection").textContent="ERROR";$("controls").innerHTML='<div class="help" style="color:#ff6b6b"><strong>Firebase connection failed.</strong></div>'}}
 start();setInterval(render,1000);
 </script></body></html>
