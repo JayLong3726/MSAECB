@@ -1,12 +1,12 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ECB Training Simulator</title>
-<link rel="stylesheet" href="style.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script></head>
+<link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/davidshimjs-qrcodejs@0.0.2/qrcode.min.js"></script></head>
 <body>
 <header class="topbar"><div class="brand">ECB <span>TRAINING SIMULATOR</span></div><div class="status"><span class="dot"></span> LIVE BOARD</div></header>
 <main class="view"><div class="grid">
 <section class="card"><div class="cardhead"><div><h2>MSA Entry Control Board</h2><div class="small">Training simulation · Session <span id="sessionLabel"></span></div></div><div class="small">TOW DISPLAY</div></div>
 <div class="board"><div class="board-top"><div><div class="board-name">ECB ALPHA</div><div class="clock" id="clock">--:--:--</div></div><button class="evacuate-all" id="evacAll">EVACUATE ALL</button></div><div id="slots"></div></div></section>
 <aside class="card"><div class="cardhead"><h3>Instructor Link</h3><span class="small" id="connection">CONNECTING</span></div>
-<div class="controls"><div style="display:flex;gap:14px;align-items:center"><div class="qrbox" id="qr"></div><div class="help"><strong>Scan with instructor phone</strong><br>Scan this QR code to open the private controller for this exact exercise session.</div></div>
+<div class="controls"><div style="display:flex;gap:14px;align-items:center"><div class="qrbox" id="qr"></div><div class="help"><strong>Scan with instructor phone</strong><br>Scan this QR code to open the private controller for this exact exercise session.<br><br><span id="controllerUrl" style="word-break:break-all;font-size:10px"></span></div></div>
 <label>Display<select id="displayMode"><option value="tow">Time of Whistle</option><option value="ttw">Time to Whistle</option><option value="elapsed">Elapsed Time</option></select></label>
 <button class="btn dark" id="reset">Reset Scenario</button>
 <div class="help"><strong>Operator:</strong> insert the tallies manually into the six channels. The instructor controls the simulation remotely from the phone.</div></div>
@@ -46,7 +46,13 @@ function render(){
 function makeQR(){
  const target=location.origin+location.pathname.replace("board.html","controller.html")+"?session="+session;
  $("qr").innerHTML="";
- if(window.QRCode) new QRCode($("qr"),{text:target,width:114,height:114,colorDark:"#111",colorLight:"#fff",correctLevel:QRCode.CorrectLevel.M});
+ if(window.QRCode){
+   try{
+     new QRCode($("qr"),{text:target,width:114,height:114,colorDark:"#111",colorLight:"#fff",correctLevel:QRCode.CorrectLevel.H});
+     return;
+   }catch(e){ console.error("QR generation failed",e); }
+ }
+ $("qr").innerHTML='<div style="font-size:10px;color:#222;text-align:center;padding:8px">QR unavailable<br><br><strong>Use controller link below</strong></div>';
 }
 window.openInsert=id=>{pending=id;$("modalSlot").textContent=id;$("name").value="";$("team").value="ALPHA";$("pressure").value=300;$("timeIn").value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);$("modal").classList.add("show")};
 $("cancel").onclick=()=>$("modal").classList.remove("show");
@@ -56,7 +62,7 @@ $("evacAll").onclick=async()=>{addLog("BOARD: EVACUATE ALL initiated.");await wr
 $("reset").onclick=async()=>{state={boardName:"ECB ALPHA",displayMode:"tow",consumptionLpm:50,cylinderVolumeL:9,slots:Array.from({length:6},(_,i)=>({...blank(),id:i+1})),log:[]};addLog("Scenario reset. ECB ready.");await writeSession(session,state)};
 $("displayMode").onchange=async e=>{state.displayMode=e.target.value;await writeSession(session,state)};
 async function start(){
- try{await connect();$("connection").textContent="CONNECTED";const exists=!!qs.get("session");if(!exists)await writeSession(session,state);watchSession(session,s=>{if(s){state=s;render()}});makeQR();render()}catch(e){console.error(e);$("connection").textContent="ERROR";$("log").innerHTML='<div class="event">Firebase connection failed. Check Authentication and Database Rules.</div>';render()}
+ try{await connect();$("connection").textContent="CONNECTED";const exists=!!qs.get("session");if(!exists)await writeSession(session,state);watchSession(session,s=>{if(s){state=s;render()}});makeQR();$("controllerUrl").textContent=location.origin+location.pathname.replace("board.html","controller.html")+"?session="+session;render()}catch(e){console.error(e);$("connection").textContent="ERROR";$("log").innerHTML='<div class="event">Firebase connection failed. Check Authentication and Database Rules.</div>';render()}
 }
 start();setInterval(render,1000);
 </script></body></html>
