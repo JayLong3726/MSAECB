@@ -2,7 +2,11 @@
 <body><header class="topbar"><div class="brand">ECB <span>INSTRUCTOR CONTROLLER</span></div><div class="status"><span class="dot"></span> LIVE CONTROL</div></header>
 <main class="view"><div class="phone"><section class="card"><div class="cardhead"><div><h2>Instructor Controller</h2><div class="small" id="sessionInfo"></div></div><div class="small" id="connection">CONNECTING</div></div>
 <div class="control-section"><label>SIMULATED AIR CONSUMPTION<input id="rate" type="number" min="10" max="150" step="1"><span class="small">L/min · simulation parameter</span></label><div class="row"><button class="btn dark" id="minus">−5 L/min</button><button class="btn dark" id="plus">+5 L/min</button></div></div>
-<div class="control-section" id="controls"></div><div class="control-section"><div class="row"><button class="btn red" id="evacAll">EVACUATE ALL</button><button class="btn dark" id="reset">RESET</button></div></div>
+<div class="control-section">
+  <div style="font-size:13px;font-weight:900;margin-bottom:6px">INDIVIDUAL WEARER CONTROL</div>
+  <div class="small" style="margin-bottom:10px">Every tally inserted on the ECB appears below as its own live control panel.</div>
+  <div id="controls"></div>
+</div><div class="control-section"><div class="row"><button class="btn red" id="evacAll">EVACUATE ALL</button><button class="btn dark" id="reset">RESET</button></div></div>
 <div class="control-section"><div class="help"><strong>Instructor controls are separate from the ECB operator.</strong><br>Use this phone to inject events into the live board. This is a training simulation, not an operational replacement for the real ECB.</div></div>
 <div class="cardhead"><h3>Event Log</h3></div><div class="eventlog" id="log"></div>
 </section></div></main><footer>ECB Training Simulator · instructor interface</footer>
@@ -20,8 +24,17 @@ function render(){
  $("rate").value=state.consumptionLpm;
  const c=$("controls");c.innerHTML="";
  state.slots.filter(s=>s.inserted).forEach(s=>{
- c.insertAdjacentHTML("beforeend",`<div class="wearer-control"><strong>${s.id}. ${esc(s.name)}</strong><span class="small">${esc(s.team)} · ${Math.round(pressure(s))} bar</span><div class="control-buttons">
- <button onclick="alarm(${s.id},'DSU')">DSU</button><button onclick="alarm(${s.id},'ADSU')">ADSU</button><button class="warning" onclick="alarm(${s.id},'MOTION ALARM')">MOTION</button><button class="danger" onclick="evacuate(${s.id})">EVACUATE</button><button onclick="telemetry(${s.id},${!s.telemetry})">${s.telemetry?"DROP TELEMETRY":"RESTORE LINK"}</button><button class="green" onclick="ack(${s.id})">ACKNOWLEDGE</button><button onclick="removeTally(${s.id})">REMOVE TALLY</button></div></div>`)});
+ c.insertAdjacentHTML("beforeend",`<div class="wearer-control"><strong>${s.id}. ${esc(s.name)}</strong><span class="small">${esc(s.team)} · ${Math.round(pressure(s))} bar</span>
+ <div class="small" style="margin-top:6px">Status: ${s.alarm ? esc(s.alarm) : "NORMAL"}${s.evac ? " · EVACUATION "+esc(s.evac.toUpperCase()) : ""}</div>
+ <div class="control-buttons">
+ <button onclick="alarm(${s.id},'DSU')">DSU</button>
+ <button onclick="alarm(${s.id},'ADSU')">ADSU</button>
+ <button class="warning" onclick="alarm(${s.id},'MOTION ALARM')">MOTION</button>
+ <button class="danger" onclick="evacuate(${s.id})">EVACUATE</button>
+ <button onclick="telemetry(${s.id},${!s.telemetry})">${s.telemetry?"DROP TELEMETRY":"RESTORE LINK"}</button>
+ <button class="green" onclick="ack(${s.id})">ACKNOWLEDGE</button>
+ <button onclick="removeTally(${s.id})">REMOVE TALLY</button>
+ </div></div>`)});
  $("log").innerHTML=(state.log||[]).map(e=>`<div class="event"><time>${new Date(e.time).toLocaleTimeString()}</time>${esc(e.message)}</div>`).join("");
 }
 window.alarm=async(id,type)=>{const s=state.slots[id-1];s.alarm=type;s.alarmAck=false;addLog(`Tally ${id}: ${type} activated.`);await save()};

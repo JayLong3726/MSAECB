@@ -6,7 +6,15 @@
 <section class="card"><div class="cardhead"><div><h2>MSA Entry Control Board</h2><div class="small">Training simulation · Session <span id="sessionLabel"></span></div></div><div class="small">TOW DISPLAY</div></div>
 <div class="board"><div class="board-top"><div><div class="board-name">ECB ALPHA</div><div class="clock" id="clock">--:--:--</div></div><button class="evacuate-all" id="evacAll">EVACUATE ALL</button></div><div id="slots"></div></div></section>
 <aside class="card"><div class="cardhead"><h3>Instructor Link</h3><span class="small" id="connection">CONNECTING</span></div>
-<div class="controls"><div style="display:flex;gap:14px;align-items:center"><div class="qrbox" id="qr"></div><div class="help"><strong>Scan with instructor phone</strong><br>Scan this QR code to open the private controller for this exact exercise session.<br><br><span id="controllerUrl" style="word-break:break-all;font-size:10px"></span></div></div>
+<div class="controls"><div style="display:flex;gap:14px;align-items:center">
+<div style="background:#073b5c;color:#fff;border-radius:8px;padding:16px;min-width:150px;text-align:center">
+<div style="font-size:11px;font-weight:800;letter-spacing:.5px">PHONE CONTROL</div>
+<div style="font-size:22px;font-weight:900;margin-top:8px">OPEN ON PHONE</div>
+</div>
+<div class="help"><strong>Instructor phone</strong><br>Every wearer you insert will appear individually on the phone controller, with separate DSU, ADSU, motion, evacuation and telemetry controls.<br><br>On the phone, open:<br>
+<a id="controllerUrl" href="https://jaylong3726.github.io/MSAECB/controller.html" target="_blank" style="display:inline-block;margin-top:7px;color:#62b9ff;font-weight:800;word-break:break-all">https://jaylong3726.github.io/MSAECB/controller.html</a>
+<br><br><span style="font-size:10px">The phone controller connects automatically to this ECB training session.</span></div>
+</div>
 <label>Display<select id="displayMode"><option value="tow">Time of Whistle</option><option value="ttw">Time to Whistle</option><option value="elapsed">Elapsed Time</option></select></label>
 <button class="btn dark" id="reset">Reset Scenario</button>
 <div class="help"><strong>Operator:</strong> insert the tallies manually into the six channels. The instructor controls the simulation remotely from the phone.</div></div>
@@ -44,14 +52,9 @@ function render(){
  $("log").innerHTML=(state.log||[]).map(e=>`<div class="event"><time>${new Date(e.time).toLocaleTimeString()}</time>${esc(e.message)}</div>`).join("");
 }
 function makeQR(){
- const target="https://jaylong3726.github.io/MSAECB/controller.html?session=ECB-ALPHA";
- $("qr").innerHTML="";
- const img=document.createElement("img");
- img.alt="Instructor controller QR code";
- img.width=114; img.height=114;
- img.src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAcIAAAHCAQAAAABUY/ToAAADrElEQVR4nO2cTW7jOBCFXzUFeCkBOYCPQt+skZuZR8kBGqCWBmi8WRRJU5nMJrA7lufVgqATfaAIFIrF+pER35P065sgIFKkSJEiRYoU+XykVZmAtAA+AwCkNrPT2p463WVNkS9GRpJkBhDz1RDz1VXFB1uuBiCQJLklv7+myBcj12pfzOxApAXgGW3gx+SzwUDtdJ8i/wIZM0DmaoLcLKUj6T8fs6bIXZPT5z+kJQCYCUsWimEuE7BOhVjvtabI1yRnkmcAiLwYsE4A5gIAgXZCdY9IlvutKfKlyGRmZgsArId6bsWPqQ05EMDVr2U//7Yin4r0s2xIeKQFBswXY1oCmI7d8MzbtMi+9inycST8uh4zACCQZwT6MRbZzjd/rj9Ckjzva58iH0eihXwCeZ4LeJ4LgLmAzIHuKLmasbgiSYdEbqVqBAKr2zMXjNanG6PIpmFROiRyFHYB5mpu2j8K6t9yoP+MbpGkQyIHaQdVzXW0E6xUw1OVq6A6SoDskMhPMvjUsRsj9KPNTzC02U2kQyKbVI24OdHdu+4+tT/XnW3ZIZFb2bhCbI410J3ofi/LkD8k8gtp+TLPiC1gOl48Ek2sbzRgKoY5A0AohnVpAcl97VPk48jm4uTQzU3ol/ku/dLP7hTJDolscgsg3k4rV6keM6pRoc0FXzoksskmXzYTwPpWDHOBxfxW82Uxg0gLjECg/dzbinxGcohT+8AM96RRL/j1SjaYJZ1lIkdxO2QxL4bIq8GLzrqkY5m8HgRz3qTx97VPkY8jx4xYTcqX4Vpfc64ZqCVpig+J/JcM8aFbSsMj1ghjxHqb/5AOifxEekfQxwQ74Wp8t8mrYnmeL61wcZ3a8NNvK/KpyB5jXMB0pM8AXI3JAi3mK9ox9meqj/zY24p8RnLIubZAY68fmrtTBIxljfKHRG6kxRg5ZubPLSbtUmuKxrJG6ZDIz+RqrSOo9QF5sytz8LZXAFe79cPudZ8i70+OJUG3fFmfNdvUShhlh0T+B3n77kctE1p7G9l6YBsmIH7IDon8mqyZ1vahj5OHiy5WBwB+OUvHHpDc5T5FPpC8+TnNBPG8TkCyg/dKI5n1ENJ91hT5omRaAr11+uS+TwHfj5ua/LuvKfK1yJqoJ/luE+zk0ekD7TcL+O5fs7rzmiJ3TbY4tZcOAUxLcEWySIBpQUvor2/FIgHVD4ncSs25uvRmoJkcyvFrr8c2Yr2vfYp8HGn6xrlIkSJFihQp8n9O/gOuASpPp1fPIwAAAABJRU5ErkJggg==";
- $("qr").appendChild(img);
+ const target="https://jaylong3726.github.io/MSAECB/controller.html";
  $("controllerUrl").textContent=target;
+ $("controllerUrl").href=target;
 }window.openInsert=id=>{pending=id;$("modalSlot").textContent=id;$("name").value="";$("team").value="ALPHA";$("pressure").value=300;$("timeIn").value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);$("modal").classList.add("show")};
 $("cancel").onclick=()=>$("modal").classList.remove("show");
 $("insert").onclick=async()=>{const s=state.slots[pending-1];s.name=$("name").value.trim()||"Wearer";s.team=$("team").value;s.initialPressure=Number($("pressure").value)||0;s.timeIn=new Date($("timeIn").value).toISOString();s.inserted=true;s.telemetry=true;s.alarm=null;s.alarmAck=false;s.evac=null;addLog(`Tally ${pending} inserted: ${s.name}, ${s.initialPressure} bar, ${s.team}.`);await writeSession(session,state);$("modal").classList.remove("show")};
