@@ -8,7 +8,7 @@
 </section></div></main><footer>ECB Training Simulator · instructor interface</footer>
 <script type="module">
 import {connect,writeSession,watchSession} from "./firebase.js";
-const session=new URLSearchParams(location.search).get("session");let state=null;
+const session=new URLSearchParams(location.search).get("session")||"ECB-ALPHA";let state=null;
 const $=id=>document.getElementById(id);
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
 function pressure(s){if(!s.inserted)return 0;const sec=Math.max(0,(Date.now()-new Date(s.timeIn).getTime())/1000);return Math.max(0,s.initialPressure-(state.consumptionLpm*sec/60)/state.cylinderVolumeL)}
